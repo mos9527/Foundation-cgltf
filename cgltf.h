@@ -531,6 +531,14 @@ typedef struct cgltf_diffuse_transmission
 	cgltf_texture_view diffuse_transmission_color_texture;
 } cgltf_diffuse_transmission;
 
+typedef struct cgltf_subsurface
+{
+	char* subsurface_method;
+	cgltf_float subsurface_weight;
+	cgltf_float subsurface_radius[3];
+	cgltf_float subsurface_scale;
+} cgltf_subsurface;
+
 typedef struct cgltf_anisotropy
 {
 	cgltf_float anisotropy_strength;
@@ -557,6 +565,7 @@ typedef struct cgltf_material
 	cgltf_bool has_emissive_strength;
 	cgltf_bool has_iridescence;
 	cgltf_bool has_diffuse_transmission;
+	cgltf_bool has_subsurface;
 	cgltf_bool has_anisotropy;
 	cgltf_bool has_dispersion;
 	cgltf_pbr_metallic_roughness pbr_metallic_roughness;
@@ -570,6 +579,7 @@ typedef struct cgltf_material
 	cgltf_emissive_strength emissive_strength;
 	cgltf_iridescence iridescence;
 	cgltf_diffuse_transmission diffuse_transmission;
+	cgltf_subsurface subsurface;
 	cgltf_anisotropy anisotropy;
 	cgltf_dispersion dispersion;
 	cgltf_texture_view normal_texture;
@@ -1986,6 +1996,7 @@ void cgltf_free(cgltf_data* data)
 	for (cgltf_size i = 0; i < data->materials_count; ++i)
 	{
 		data->memory.free_func(data->memory.user_data, data->materials[i].name);
+		data->memory.free_func(data->memory.user_data, data->materials[i].subsurface.subsurface_method);
 
 		cgltf_free_extensions(data, data->materials[i].extensions, data->materials[i].extensions_count);
 		cgltf_free_extras(data, &data->materials[i].extras);
@@ -4401,6 +4412,57 @@ static int cgltf_parse_json_diffuse_transmission(cgltf_options* options, jsmntok
 	return i;
 }
 
+static int cgltf_parse_json_subsurface(cgltf_options* options, jsmntok_t const* tokens, int i, const uint8_t* json_chunk, cgltf_subsurface* out_subsurface)
+{
+	CGLTF_CHECK_TOKTYPE(tokens[i], JSMN_OBJECT);
+	int size = tokens[i].size;
+	++i;
+
+	// Defaults mirror EXT_materials_subsurface.md.
+	out_subsurface->subsurface_weight = 0.f;
+	cgltf_fill_float_array(out_subsurface->subsurface_radius, 3, 1.0f);
+	out_subsurface->subsurface_radius[1] = 0.2f;
+	out_subsurface->subsurface_radius[2] = 0.1f;
+	out_subsurface->subsurface_scale = 0.05f;
+
+	for (int j = 0; j < size; ++j)
+	{
+		CGLTF_CHECK_KEY(tokens[i]);
+
+		if (cgltf_json_strcmp(tokens + i, json_chunk, "subsurfaceMethod") == 0)
+		{
+			i = cgltf_parse_json_string(options, tokens, i + 1, json_chunk, &out_subsurface->subsurface_method);
+		}
+		else if (cgltf_json_strcmp(tokens + i, json_chunk, "subsurfaceWeight") == 0)
+		{
+			++i;
+			out_subsurface->subsurface_weight = cgltf_json_to_float(tokens + i, json_chunk);
+			++i;
+		}
+		else if (cgltf_json_strcmp(tokens + i, json_chunk, "subsurfaceRadius") == 0)
+		{
+			i = cgltf_parse_json_float_array(tokens, i + 1, json_chunk, out_subsurface->subsurface_radius, 3);
+		}
+		else if (cgltf_json_strcmp(tokens + i, json_chunk, "subsurfaceScale") == 0)
+		{
+			++i;
+			out_subsurface->subsurface_scale = cgltf_json_to_float(tokens + i, json_chunk);
+			++i;
+		}
+		else
+		{
+			i = cgltf_skip_json(tokens, i + 1);
+		}
+
+		if (i < 0)
+		{
+			return i;
+		}
+	}
+
+	return i;
+}
+
 static int cgltf_parse_json_anisotropy(cgltf_options* options, jsmntok_t const* tokens, int i, const uint8_t* json_chunk, cgltf_anisotropy* out_anisotropy)
 {
 	CGLTF_CHECK_TOKTYPE(tokens[i], JSMN_OBJECT);
@@ -4893,6 +4955,11 @@ static int cgltf_parse_json_material(cgltf_options* options, jsmntok_t const* to
 				{
 					out_material->has_diffuse_transmission = 1;
 					i = cgltf_parse_json_diffuse_transmission(options, tokens, i + 1, json_chunk, &out_material->diffuse_transmission);
+				}
+				else if (cgltf_json_strcmp(tokens + i, json_chunk, "EXT_materials_subsurface") == 0)
+				{
+					out_material->has_subsurface = 1;
+					i = cgltf_parse_json_subsurface(options, tokens, i + 1, json_chunk, &out_material->subsurface);
 				}
 				else if (cgltf_json_strcmp(tokens + i, json_chunk, "KHR_materials_anisotropy") == 0)
 				{

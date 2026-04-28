@@ -89,6 +89,7 @@ cgltf_size cgltf_write(const cgltf_options* options, char* buffer, cgltf_size si
 #define CGLTF_EXTENSION_FLAG_MATERIALS_DISPERSION (1 << 17)
 #define CGLTF_EXTENSION_FLAG_TEXTURE_WEBP          (1 << 18)
 #define CGLTF_EXTENSION_FLAG_MATERIALS_DIFFUSE_TRANSMISSION (1 << 19)
+#define CGLTF_EXTENSION_FLAG_MATERIALS_SUBSURFACE (1 << 20)
 
 typedef struct {
 	char* buffer;
@@ -662,6 +663,11 @@ static void cgltf_write_material(cgltf_write_context* context, const cgltf_mater
 		context->extension_flags |= CGLTF_EXTENSION_FLAG_MATERIALS_DIFFUSE_TRANSMISSION;
 	}
 
+	if (material->has_subsurface)
+	{
+		context->extension_flags |= CGLTF_EXTENSION_FLAG_MATERIALS_SUBSURFACE;
+	}
+
 	if (material->has_anisotropy)
 	{
 		context->extension_flags |= CGLTF_EXTENSION_FLAG_MATERIALS_ANISOTROPY;
@@ -687,7 +693,7 @@ static void cgltf_write_material(cgltf_write_context* context, const cgltf_mater
 		cgltf_write_line(context, "}");
 	}
 
-	if (material->unlit || material->has_pbr_specular_glossiness || material->has_clearcoat || material->has_ior || material->has_specular || material->has_transmission || material->has_sheen || material->has_volume || material->has_emissive_strength || material->has_iridescence || material->has_anisotropy || material->has_dispersion || material->has_diffuse_transmission)
+	if (material->unlit || material->has_pbr_specular_glossiness || material->has_clearcoat || material->has_ior || material->has_specular || material->has_transmission || material->has_sheen || material->has_volume || material->has_emissive_strength || material->has_iridescence || material->has_anisotropy || material->has_dispersion || material->has_diffuse_transmission || material->has_subsurface)
 	{
 		cgltf_write_line(context, "\"extensions\": {");
 		if (material->has_clearcoat)
@@ -809,6 +815,19 @@ static void cgltf_write_material(cgltf_write_context* context, const cgltf_mater
 				cgltf_write_floatarrayprop(context, "diffuseTransmissionColorFactor", params->diffuse_transmission_color_factor, 3);
 			}
 			CGLTF_WRITE_TEXTURE_INFO("diffuseTransmissionColorTexture", params->diffuse_transmission_color_texture);
+			cgltf_write_line(context, "}");
+		}
+		if (material->has_subsurface)
+		{
+			const cgltf_subsurface* params = &material->subsurface;
+			cgltf_write_line(context, "\"EXT_materials_subsurface\": {");
+			cgltf_write_strprop(context, "subsurfaceMethod", params->subsurface_method);
+			cgltf_write_floatprop(context, "subsurfaceWeight", params->subsurface_weight, 0.f);
+			if (cgltf_check_floatarray(params->subsurface_radius, 3, 1.f))
+			{
+				cgltf_write_floatarrayprop(context, "subsurfaceRadius", params->subsurface_radius, 3);
+			}
+			cgltf_write_floatprop(context, "subsurfaceScale", params->subsurface_scale, 0.05f);
 			cgltf_write_line(context, "}");
 		}
 		if (material->has_anisotropy)
@@ -1319,6 +1338,9 @@ static void cgltf_write_extensions(cgltf_write_context* context, uint32_t extens
 	}
 	if (extension_flags & CGLTF_EXTENSION_FLAG_MATERIALS_DIFFUSE_TRANSMISSION) {
 		cgltf_write_stritem(context, "KHR_materials_diffuse_transmission");
+	}
+	if (extension_flags & CGLTF_EXTENSION_FLAG_MATERIALS_SUBSURFACE) {
+		cgltf_write_stritem(context, "EXT_materials_subsurface");
 	}
 	if (extension_flags & CGLTF_EXTENSION_FLAG_MATERIALS_ANISOTROPY) {
 		cgltf_write_stritem(context, "KHR_materials_anisotropy");
