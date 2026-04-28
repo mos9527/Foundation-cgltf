@@ -90,6 +90,7 @@ cgltf_size cgltf_write(const cgltf_options* options, char* buffer, cgltf_size si
 #define CGLTF_EXTENSION_FLAG_TEXTURE_WEBP          (1 << 18)
 #define CGLTF_EXTENSION_FLAG_MATERIALS_DIFFUSE_TRANSMISSION (1 << 19)
 #define CGLTF_EXTENSION_FLAG_MATERIALS_SUBSURFACE (1 << 20)
+#define CGLTF_EXTENSION_FLAG_CAMERA_LENS          (1 << 21)
 
 typedef struct {
 	char* buffer;
@@ -1178,6 +1179,17 @@ static void cgltf_write_camera(cgltf_write_context* context, const cgltf_camera*
 		cgltf_write_extras(context, &camera->data.perspective.extras);
 		cgltf_write_line(context, "}");
 	}
+	if (camera->has_lens)
+	{
+		context->extension_flags |= CGLTF_EXTENSION_FLAG_CAMERA_LENS;
+		cgltf_write_line(context, "\"extensions\": {");
+		cgltf_write_line(context, "\"EXT_camera_lens\": {");
+		cgltf_write_floatprop(context, "sensorSize", camera->lens.sensor_size, -1.0f);
+		cgltf_write_floatprop(context, "fStop", camera->lens.fstop, -1.0f);
+		cgltf_write_floatprop(context, "focusDistance", camera->lens.focus_distance, -1.0f);
+		cgltf_write_line(context, "}");
+		cgltf_write_line(context, "}");
+	}
 	cgltf_write_extras(context, &camera->extras);
 	cgltf_write_line(context, "}");
 }
@@ -1350,6 +1362,9 @@ static void cgltf_write_extensions(cgltf_write_context* context, uint32_t extens
 	}
 	if (extension_flags & CGLTF_EXTENSION_FLAG_MATERIALS_DISPERSION) {
 		cgltf_write_stritem(context, "KHR_materials_dispersion");
+	}
+	if (extension_flags & CGLTF_EXTENSION_FLAG_CAMERA_LENS) {
+		cgltf_write_stritem(context, "EXT_camera_lens");
 	}
 }
 

@@ -679,6 +679,12 @@ typedef struct cgltf_camera_orthographic {
 	cgltf_extras extras;
 } cgltf_camera_orthographic;
 
+typedef struct cgltf_camera_lens {
+	cgltf_float sensor_size;
+	cgltf_float fstop;
+	cgltf_float focus_distance;
+} cgltf_camera_lens;
+
 typedef struct cgltf_camera {
 	char* name;
 	cgltf_camera_type type;
@@ -686,6 +692,8 @@ typedef struct cgltf_camera {
 		cgltf_camera_perspective perspective;
 		cgltf_camera_orthographic orthographic;
 	} data;
+	cgltf_bool has_lens;
+	cgltf_camera_lens lens;
 	cgltf_extras extras;
 	cgltf_size extensions_count;
 	cgltf_extension* extensions;
@@ -5474,6 +5482,50 @@ static int cgltf_parse_json_skins(cgltf_options* options, jsmntok_t const* token
 	return i;
 }
 
+static int cgltf_parse_json_camera_lens(cgltf_options* options, jsmntok_t const* tokens, int i, const uint8_t* json_chunk, cgltf_camera_lens* out_lens)
+{
+	(void)options;
+	CGLTF_CHECK_TOKTYPE(tokens[i], JSMN_OBJECT);
+
+	int size = tokens[i].size;
+	++i;
+
+	for (int j = 0; j < size; ++j)
+	{
+		CGLTF_CHECK_KEY(tokens[i]);
+
+		if (cgltf_json_strcmp(tokens+i, json_chunk, "sensorSize") == 0)
+		{
+			++i;
+			out_lens->sensor_size = cgltf_json_to_float(tokens + i, json_chunk);
+			++i;
+		}
+		else if (cgltf_json_strcmp(tokens+i, json_chunk, "fStop") == 0)
+		{
+			++i;
+			out_lens->fstop = cgltf_json_to_float(tokens + i, json_chunk);
+			++i;
+		}
+		else if (cgltf_json_strcmp(tokens+i, json_chunk, "focusDistance") == 0)
+		{
+			++i;
+			out_lens->focus_distance = cgltf_json_to_float(tokens + i, json_chunk);
+			++i;
+		}
+		else
+		{
+			i = cgltf_skip_json(tokens, i+1);
+		}
+
+		if (i < 0)
+		{
+			return i;
+		}
+	}
+
+	return i;
+}
+
 static int cgltf_parse_json_camera(cgltf_options* options, jsmntok_t const* tokens, int i, const uint8_t* json_chunk, cgltf_camera* out_camera)
 {
 	CGLTF_CHECK_TOKTYPE(tokens[i], JSMN_OBJECT);
@@ -5615,7 +5667,47 @@ static int cgltf_parse_json_camera(cgltf_options* options, jsmntok_t const* toke
 		}
 		else if (cgltf_json_strcmp(tokens + i, json_chunk, "extensions") == 0)
 		{
-			i = cgltf_parse_json_unprocessed_extensions(options, tokens, i, json_chunk, &out_camera->extensions_count, &out_camera->extensions);
+			++i;
+
+			CGLTF_CHECK_TOKTYPE(tokens[i], JSMN_OBJECT);
+			if (out_camera->extensions)
+			{
+				return CGLTF_ERROR_JSON;
+			}
+
+			int extensions_size = tokens[i].size;
+			out_camera->extensions_count = 0;
+			if (extensions_size > 0)
+			{
+				out_camera->extensions = (cgltf_extension*)cgltf_calloc(options, sizeof(cgltf_extension), extensions_size);
+			}
+
+			if (extensions_size > 0 && !out_camera->extensions)
+			{
+				return CGLTF_ERROR_NOMEM;
+			}
+
+			++i;
+
+			for (int k = 0; k < extensions_size; ++k)
+			{
+				CGLTF_CHECK_KEY(tokens[i]);
+
+				if (cgltf_json_strcmp(tokens+i, json_chunk, "EXT_camera_lens") == 0)
+				{
+					out_camera->has_lens = 1;
+					i = cgltf_parse_json_camera_lens(options, tokens, i + 1, json_chunk, &out_camera->lens);
+				}
+				else
+				{
+					i = cgltf_parse_json_unprocessed_extension(options, tokens, i, json_chunk, &(out_camera->extensions[out_camera->extensions_count++]));
+				}
+
+				if (i < 0)
+				{
+					return i;
+				}
+			}
 		}
 		else
 		{
