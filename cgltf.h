@@ -533,7 +533,7 @@ typedef struct cgltf_diffuse_transmission
 
 typedef struct cgltf_subsurface
 {
-	char* subsurface_method;
+	char* subsurface_profile;
 	cgltf_float subsurface_weight;
 	cgltf_float subsurface_radius[3];
 	cgltf_float subsurface_scale;
@@ -2007,7 +2007,7 @@ void cgltf_free(cgltf_data* data)
 	for (cgltf_size i = 0; i < data->materials_count; ++i)
 	{
 		data->memory.free_func(data->memory.user_data, data->materials[i].name);
-		data->memory.free_func(data->memory.user_data, data->materials[i].subsurface.subsurface_method);
+		data->memory.free_func(data->memory.user_data, data->materials[i].subsurface.subsurface_profile);
 
 		cgltf_free_extensions(data, data->materials[i].extensions, data->materials[i].extensions_count);
 		cgltf_free_extras(data, &data->materials[i].extras);
@@ -4440,9 +4440,9 @@ static int cgltf_parse_json_subsurface(cgltf_options* options, jsmntok_t const* 
 	{
 		CGLTF_CHECK_KEY(tokens[i]);
 
-		if (cgltf_json_strcmp(tokens + i, json_chunk, "subsurfaceMethod") == 0)
+		if (cgltf_json_strcmp(tokens + i, json_chunk, "subsurfaceProfile") == 0)
 		{
-			i = cgltf_parse_json_string(options, tokens, i + 1, json_chunk, &out_subsurface->subsurface_method);
+			i = cgltf_parse_json_string(options, tokens, i + 1, json_chunk, &out_subsurface->subsurface_profile);
 		}
 		else if (cgltf_json_strcmp(tokens + i, json_chunk, "subsurfaceWeight") == 0)
 		{

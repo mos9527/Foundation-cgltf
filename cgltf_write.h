@@ -821,10 +821,13 @@ static void cgltf_write_material(cgltf_write_context* context, const cgltf_mater
 		if (material->has_subsurface)
 		{
 			const cgltf_subsurface* params = &material->subsurface;
+			const cgltf_float default_subsurface_radius[3] = { 1.f, 0.2f, 0.1f };
 			cgltf_write_line(context, "\"EXT_materials_subsurface\": {");
-			cgltf_write_strprop(context, "subsurfaceMethod", params->subsurface_method);
+			cgltf_write_strprop(context, "subsurfaceProfile", params->subsurface_profile ? params->subsurface_profile : "burley");
 			cgltf_write_floatprop(context, "subsurfaceWeight", params->subsurface_weight, 0.f);
-			if (cgltf_check_floatarray(params->subsurface_radius, 3, 1.f))
+			if (params->subsurface_radius[0] != default_subsurface_radius[0] ||
+				params->subsurface_radius[1] != default_subsurface_radius[1] ||
+				params->subsurface_radius[2] != default_subsurface_radius[2])
 			{
 				cgltf_write_floatarrayprop(context, "subsurfaceRadius", params->subsurface_radius, 3);
 			}
